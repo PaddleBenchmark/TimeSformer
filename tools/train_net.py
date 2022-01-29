@@ -2,6 +2,7 @@
 
 """Train a video classification model."""
 
+import time
 import numpy as np
 import pprint
 import torch
@@ -50,9 +51,12 @@ def train_epoch(
 
     cur_global_batch_size = cfg.NUM_SHARDS * cfg.TRAIN.BATCH_SIZE
     num_iters = cfg.GLOBAL_BATCH_SIZE // cur_global_batch_size
-
+    max_iters = 60
     for cur_iter, (inputs, labels, _, meta) in enumerate(train_loader):
+        if cur_iter >= max_iters:
+            exit(0)
         # Transfer the data to the current GPU device.
+        start_tic = time.time()
         if cfg.NUM_GPUS:
             if isinstance(inputs, (list,)):
                 for i in range(len(inputs)):
@@ -177,7 +181,10 @@ def train_epoch(
                     },
                     global_step=data_size * cur_epoch + cur_iter,
                 )
-
+        end_tic = time.time()
+        batch_time = end_tic - start_tic
+        ips_str = "ips: {:.5f} instance/sec.".format(labels.shape[0] / batch_time)
+        print(ips_str)
         train_meter.iter_toc()  # measure allreduce for this meter
         train_meter.log_iter_stats(cur_epoch, cur_iter)
         train_meter.iter_tic()
@@ -486,7 +493,7 @@ def train(cfg):
         is_eval_epoch = misc.is_eval_epoch(
             cfg, cur_epoch, None if multigrid is None else multigrid.schedule
         )
-
+        is_eval_epoch = False # 测试不需要eval
         # Compute precise BN stats.
         if (
             (is_checkp_epoch or is_eval_epoch)
