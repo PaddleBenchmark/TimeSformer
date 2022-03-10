@@ -14,3 +14,6 @@ matplotlib
 simplejson
 fvcore
 av
+timm
+iopath
+portalocker
